@@ -789,6 +789,10 @@ class TestUnlinkSAPLearnersManagementCommand(unittest.TestCase, EnterpriseMockMi
             catalog=1,
             name='Veridian Dynamics',
         )
+        factories.EnterpriseCustomerIdentityProviderFactory(
+            enterprise_customer=self.enterprise_customer,
+            provider_id='ubc-bestrun',
+        )
         self.degreed = factories.DegreedEnterpriseCustomerConfigurationFactory(
             enterprise_customer=self.enterprise_customer,
             key='key',
@@ -859,10 +863,12 @@ class TestUnlinkSAPLearnersManagementCommand(unittest.TestCase, EnterpriseMockMi
     @mock.patch('enterprise.api_client.lms.JwtBuilder', mock.Mock())
     @mock.patch('integrated_channels.sap_success_factors.client.SAPSuccessFactorsAPIClient.get_oauth_access_token')
     @mock.patch('integrated_channels.sap_success_factors.client.SAPSuccessFactorsAPIClient.update_content_metadata')
+    @mock.patch('enterprise.tpa_pipeline.UserSocialAuth')
     def test_unlink_inactive_sap_learners_task_success(
             self,
             learners,
             unlinked_sap_learners,
+            user_social_auth_mock,
             sapsf_update_content_metadata_mock,
             sapsf_get_oauth_access_token_mock,
     ):  # pylint: disable=invalid-name
@@ -885,6 +891,12 @@ class TestUnlinkSAPLearnersManagementCommand(unittest.TestCase, EnterpriseMockMi
         enterprise_catalog_uuid = str(self.enterprise_customer.enterprise_customer_catalogs.first().uuid)
         self.mock_enterprise_customer_catalogs(enterprise_catalog_uuid)
 
+        user_social_auth_mock.objects.filter.return_value = mock.Mock(
+            user=self.user,
+            provider='tpa_saml',
+            uid='bestrun:' + self.user.username,
+            extra_data={}
+        )
         # Now mock SAPSF searchStudent for inactive learner
         responses.add(
             responses.GET,
